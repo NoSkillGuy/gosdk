@@ -94,11 +94,6 @@ func invalidUsage(args ...string) *Error {
 	}
 }
 
-func isCode(code string) bool {
-	// ascii code for ":" is 58
-	return code[len(code)-1] == 58
-}
-
 func invalidCode(code string) *Error {
 	return &Error{
 		Code:     "incorrect_code",

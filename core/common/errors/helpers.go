@@ -1,6 +1,8 @@
 package errors
 
-import "strings"
+import (
+	"strings"
+)
 
 func Unmarshal(data string) error {
 	errors := strings.Split(data, "\n")
@@ -35,6 +37,11 @@ func extractCode(code string) string {
 	return strings.TrimRight(code, ":")
 }
 
+func isCode(code string) bool {
+	// ascii code for ":" is 58
+	return code[len(code)-1] == 58
+}
+
 // Top since errors can be wrapped and stacked,
 // it's necessary to get the top level error for tests and validations
 func Top(err error) string {
@@ -45,6 +52,8 @@ func Top(err error) string {
 		switch ct := t.current.(type) {
 		case *Error:
 			return ct.top()
+		case *withError:
+			return Top(t.current)
 		default:
 			return err.Error()
 		}
@@ -66,4 +75,22 @@ func PPrint(err error) string {
 	default:
 		return e.Error()
 	}
+}
+
+// isError - parses the error into Error
+func isError(err error) *Error {
+	t, ok := err.(*Error)
+	if ok {
+		return t
+	}
+	return nil
+}
+
+// isError - parses the error into withError
+func isWithError(err error) *withError {
+	t, ok := err.(*withError)
+	if ok {
+		return t
+	}
+	return nil
 }

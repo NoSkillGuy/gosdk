@@ -13,35 +13,12 @@ func Is(actual error, target *Error) bool {
 		} else {
 			return actualError.Code == target.Code
 		}
-
 	} else {
 		actualWithError := isWithError(actual)
 		if actualWithError != nil {
-			if actualWithError.current != nil {
-				return Is(actualWithError.current, target)
-			} else {
-				return Is(actualWithError.previous, target)
-			}
+			return Is(actualWithError.current, target) || Is(actualWithError.previous, target)
 		} else {
 			return false
 		}
 	}
-}
-
-// isError - parses the error into Error
-func isError(err error) *Error {
-	t, ok := err.(*Error)
-	if ok {
-		return t
-	}
-	return nil
-}
-
-// isError - parses the error into withError
-func isWithError(err error) *withError {
-	t, ok := err.(*withError)
-	if ok {
-		return t
-	}
-	return nil
 }

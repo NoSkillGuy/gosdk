@@ -1,9 +1,6 @@
 package errors
 
 import (
-	"errors"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -60,6 +57,12 @@ func getNewErrorTestCase() []newErrorTestCase {
 			expectedCode:    "incorrect_usage",
 			expectedMessage: "max allowed parameters is 2 i.e code, msg. parameters sent - 0",
 		},
+		{
+			about:           "creating an error with spaces in code",
+			args:            []string{"This is a very long code", "This is its very long message"},
+			expectedCode:    "incorrect_code",
+			expectedMessage: "code should not have spaces. use 'this_is_a_very_long_code' instead of 'This is a very long code'",
+		},
 	}
 }
 
@@ -80,85 +83,6 @@ func TestError(t *testing.T) {
 			err := New(tc.args...)
 
 			require.Contains(t, err.Error(), tc.expectedMessage)
-		})
-	}
-}
-
-type wrapTopTestCase struct {
-	about              string
-	testCase           []interface{}
-	expectedTopMessage string
-}
-
-func getWrapTopTestCases() []wrapTopTestCase {
-	return []wrapTopTestCase{
-		{
-			about: "wrapping all errors",
-			testCase: []interface{}{
-				New("500", "This is a very big error! Beware of it!"),
-				New("", "This is a very big error! Beware of it!"),
-				New("401", ""),
-				New("This is a short error!"),
-				New("code", "message", "third"),
-				New("code", "message", "third", "fourth"),
-				New(),
-				errors.New("error created from err package"),
-				fmt.Errorf("%s", "error created from fmt package"),
-				nil,
-			},
-			expectedTopMessage: "incorrect_usage: you should pass either error or message to properly wrap the error!",
-		},
-		{
-			about: "wrapping all messages",
-			testCase: []interface{}{
-				"This is a very \"big\" error! Beware of it!",
-				"This is a very 'big' error! Beware of it!",
-				"This is a short error!",
-				"",
-			},
-			expectedTopMessage: "incorrect_usage: you should pass either error or message to properly wrap the error!",
-		},
-		{
-			about: "wrapping errors and messages",
-			testCase: []interface{}{
-				New("500", "This is a very big error! Beware of it!"),
-				"This is a very \"big\" error! Beware of it!",
-				New("401", ""),
-				"This is a very 'big' error! Beware of it!",
-				New("This is a short error!"),
-				"",
-				nil,
-				New("code", "message", "third"),
-				"This is a short error!",
-				New("code", "message", "third", "fourth"),
-				New(),
-				New("", "This is a very big error! Beware of it!"),
-			},
-			expectedTopMessage: "This is a very big error! Beware of it!",
-		},
-	}
-}
-
-func TestWrap(t *testing.T) {
-	for _, gtc := range getWrapTopTestCases() {
-		t.Run(gtc.about, func(t *testing.T) {
-			var wrappedError error
-			for _, tc := range gtc.testCase {
-				wrappedError = Wrap(wrappedError, tc)
-			}
-			require.Equal(t, len(gtc.testCase), len(strings.Split(wrappedError.Error(), "\n")))
-		})
-	}
-}
-
-func TestTop(t *testing.T) {
-	for _, gtc := range getWrapTopTestCases() {
-		t.Run(gtc.about, func(t *testing.T) {
-			var wrappedError error
-			for _, tc := range gtc.testCase {
-				wrappedError = Wrap(wrappedError, tc)
-			}
-			require.Equal(t, gtc.expectedTopMessage, Top(wrappedError))
 		})
 	}
 }
@@ -206,26 +130,54 @@ func getNewErrorfTestCase() []newErrorfTestCase {
 			expectedCode:    "",
 			expectedMessage: "This is a short error!",
 		},
-		// {
-		// 	about:           "creating an error with 0args and args are expected",
-		// 	code:            "incorrect_usage",
-		// 	format:          "This is a short error! %d %s",
-		// 	args:            []interface{}{},
-		// 	expectedCode:    "incorrect_usage",
-		// 	expectedMessage: "This is a short error!",
-		// },
-		// {
-		// 	about:           "creating an error with not allowed parameters",
-		// 	args:            []string{"code", "message", "third", "fourth"},
-		// 	expectedCode:    "incorrect_usage",
-		// 	expectedMessage: "you should at least pass message to create a proper error!",
-		// },
-		// {
-		// 	about:           "creating an error with empty parameters",
-		// 	args:            []string{},
-		// 	expectedCode:    "incorrect_usage",
-		// 	expectedMessage: "you should at least pass message to create a proper error!",
-		// },
+		{
+			about:           "creating an error with code and format which expects values but not sending values",
+			code:            "code",
+			format:          "This format expects integer value %d",
+			args:            []interface{}{},
+			expectedCode:    "code",
+			expectedMessage: "This format expects integer value %!d(MISSING)",
+		},
+		{
+			about:           "creating an error with code and format which expects integer value but we are sending string value",
+			code:            "code",
+			format:          "This format expects integer value %d",
+			args:            []interface{}{"string value"},
+			expectedCode:    "code",
+			expectedMessage: "This format expects integer value %!d(string=string value)",
+		},
+		{
+			about:           "creating an error with format and values but having empty code",
+			code:            "",
+			format:          "This is a sample format having %s",
+			args:            []interface{}{"string value"},
+			expectedCode:    "",
+			expectedMessage: "This is a sample format having string value",
+		},
+		{
+			about:           "creating an error with just format",
+			code:            "",
+			format:          "The format error",
+			args:            []interface{}{},
+			expectedCode:    "",
+			expectedMessage: "The format error",
+		},
+		{
+			about:           "creating an error with no code, format but have values",
+			code:            "",
+			format:          "",
+			args:            []interface{}{"arg1", 2, "arg3"},
+			expectedCode:    "",
+			expectedMessage: "%!(EXTRA string=arg1, int=2, string=arg3)",
+		},
+		{
+			about:           "creating an error with extra values",
+			code:            "code",
+			format:          "This is a sample format",
+			args:            []interface{}{"extra arg1", 2, "extra arg3", 3.445, nil},
+			expectedCode:    "code",
+			expectedMessage: "This is a sample format%!(EXTRA string=extra arg1, int=2, string=extra arg3, float64=3.445, <nil>)",
+		},
 	}
 }
 
@@ -237,5 +189,6 @@ func TestNewf(t *testing.T) {
 			require.Equal(t, tc.expectedCode, err.Code)
 			require.Equal(t, tc.expectedMessage, err.Msg)
 		})
+
 	}
 }
